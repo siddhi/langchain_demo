@@ -1,0 +1,4 @@
+.env
+.ipynb_checkpoints/
+*:Zone.Identifier
+*.pyc
