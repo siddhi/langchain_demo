@@ -1,0 +1,18 @@
+[project]
+name = "perplexia_ai"
+version = "0.1.0"
+description = "Sample agentic search app built in langchain"
+readme = "README.md"
+requires-python = ">=3.11.8"
+dependencies = [
+    "gradio==5.17.1",
+    "langchain==0.3.25",
+    "langchain-openai==0.3.18",
+    "langgraph==0.4.5",
+    "python-dotenv==1.1.0",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=8.4.1",
+]
