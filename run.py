@@ -1,6 +1,9 @@
 import os
 import sys
 import argparse
+import dotenv
+
+dotenv.load_dotenv()
 
 # Add the project root to Python path
 project_root = os.path.dirname(os.path.abspath(__file__))
