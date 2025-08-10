@@ -68,8 +68,8 @@ COMPARISION_PROMPT = PromptTemplate.from_template("""
   - Highlight the most significant distinctions first
   - Provide specific examples or characteristics for each item
   - Use clear contrast words (whereas, while, however, in contrast, etc.)
-  - Structure your response to make the comparison easy to follow
-  - Conclude with a brief summary of the main differences if helpful
+  - Output the comparison in the form of a markdown table with bullet points within the table cells
+  - Do not summarise at the end
 
   Question: {question}
 
@@ -78,7 +78,8 @@ COMPARISION_PROMPT = PromptTemplate.from_template("""
 DEFINITION_PROMPT = PromptTemplate.from_template("""
 You are a precise and knowledgeable assistant who provides clear, accurate definitions of terms and concepts.
 
-Keep the definition to a single sentence, keep it concise and technically accurate
+- Keep the definition to a single sentence, keep it concise and technically accurate
+- Include examples and use cases
 
 Question: {question}
 
