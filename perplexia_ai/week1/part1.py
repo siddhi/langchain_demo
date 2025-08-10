@@ -11,6 +11,7 @@ from perplexia_ai.core.chat_interface import ChatInterface
 from langchain.chat_models import init_chat_model
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableLambda
 
 ROUTING_PROMPT = PromptTemplate.from_template("""
 You are a query classifier. Given a question, you should classify it into one of five categories:
@@ -75,21 +76,13 @@ COMPARISION_PROMPT = PromptTemplate.from_template("""
   Comparison:""")
 
 DEFINITION_PROMPT = PromptTemplate.from_template("""
-  You are a precise and knowledgeable assistant who provides clear, accurate definitions of terms and concepts.
+You are a precise and knowledgeable assistant who provides clear, accurate definitions of terms and concepts.
 
-  Guidelines:
-  - Start with a clear, concise core definition
-  - Explain the essential characteristics or properties of the term
-  - Provide context about the field or domain where the term is used
-  - Include relevant examples or applications when helpful
-  - Distinguish the term from similar or related concepts if necessary
-  - Use accessible language while maintaining technical accuracy
-  - Structure the definition logically (what it is, key features, examples)
-  - Keep the response focused on the definition rather than extensive elaboration
+Keep the definition to a single sentence, keep it concise and technically accurate
 
-  Question: {question}
+Question: {question}
 
-  Definition:""")
+Definition:""")
 
 GENERAL_PROMPT = PromptTemplate.from_template("""
   You are a helpful and knowledgeable assistant who provides thoughtful, well-structured responses to a wide variety
@@ -133,24 +126,10 @@ class QueryUnderstandingChat(ChatInterface):
         }
 
     def process_message(self, message: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
-        """Process a message using query understanding.
+        """Evaluates the query intent and routes the query to a specific prompt based on the intent category"""
 
-        Students should:
-        - Classify the query type
-        - Generate appropriate response
-        - Format based on query type
+        def route_question(info: dict[str, str]):
+            return self.response_prompts.get(info["category"], GENERAL_PROMPT) | self.llm | StrOutputParser()
 
-        Args:
-            message: The user's input message
-            chat_history: Not used in Part 1
-
-        Returns:
-            str: The assistant's response
-        """
-
-        def route_question(question_type: str):
-            return self.response_prompts.get(question_type, GENERAL_PROMPT) | self.llm
-
-        question_type = self.routing_chain.invoke({"question": message})
-        chain = route_question(question_type) | StrOutputParser()
-        return chain.invoke({"question": message})
+        full_chain = {"category": self.routing_chain, "question": lambda x: x["question"] } | RunnableLambda(route_question)
+        return full_chain.invoke({"question": message})
