@@ -10,12 +10,15 @@ def chat():
     chat.initialize()
     return chat
 
-def test_routing(chat):
-    assert chat.routing_chain.invoke({"question": "How many hydrogen atoms are in a molucule of water?"}) == "factual"
-    assert chat.routing_chain.invoke({"question": "How does a car engine work?"}) == "analytical"
-    assert chat.routing_chain.invoke({"question": "What's the difference between Java and Python?"}) == "comparison"
-    assert chat.routing_chain.invoke({"question": "Define artificial intelligence"}) == "definition"
-    assert chat.routing_chain.invoke({"question": "What is the best library for AI?"}) == "general"
+@pytest.mark.parametrize("question,category", [
+    ("How many hydrogen atoms are in a molucule of water?", "factual"),
+    ("How does a car engine work?", "analytical"),
+    ("What's the difference between Java and Python?", "comparison"),
+    ("Define artificial intelligence", "definition"),
+    ("What is the best library for AI?", "general")
+])
+def test_routing(chat, question, category):
+    assert chat.routing_chain.invoke({"question": question}) == category
 
 def test_routing_tricky(chat):
     """Ask a question that is borderline between factual and definition"""
