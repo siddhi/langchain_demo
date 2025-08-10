@@ -21,6 +21,18 @@ Currently, we are only concerned with `part1`, so run the app as:
 uv run python run.py --mode part1
 ```
 
+## Testing
+
+Always run the pytest tests after making any changes to the code:
+```bash
+uv run pytest tests/ -v
+```
+
+The test suite includes:
+- Unit tests for the QueryUnderstandingChat class
+- Environment configuration validation
+- Test harness automatically loads .env file before running tests
+
 ## Architecture Overview
 
 ### Core Components

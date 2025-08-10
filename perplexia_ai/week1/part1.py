@@ -12,7 +12,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-ROUTING_PROMPT = """
+ROUTING_PROMPT = PromptTemplate.from_template("""
 You are a query classifier. Given a question, you should classify it into one of five categories:
 - factual: These are direct questions asking about a fact. Example: What is the biggest country by area?
 - analytical: These questions require an in-depth answer with logical reasoning. Example: Explain Rayleigh scattering
@@ -24,9 +24,9 @@ You should output only a single word containing the category of the question. Do
 
 Question: {question}
 Category: 
-"""
+""")
 
-FACTUAL_PROMPT = """
+FACTUAL_PROMPT = PromptTemplate.from_template("""
   You are a knowledgeable assistant that provides accurate, concise answers to factual questions.
 
   Guidelines:
@@ -38,9 +38,9 @@ FACTUAL_PROMPT = """
 
   Question: {question}
 
-  Answer:"""
+  Answer:""")
 
-ANALYTICAL_PROMPT = """
+ANALYTICAL_PROMPT = PromptTemplate.from_template("""
   You are an expert analyst who provides thorough, well-reasoned explanations for complex questions.
 
   Guidelines:
@@ -54,9 +54,9 @@ ANALYTICAL_PROMPT = """
 
   Question: {question}
 
-  Analysis:"""
+  Analysis:""")
 
-COMPARISION_PROMPT = """
+COMPARISION_PROMPT = PromptTemplate.from_template("""
   You are a knowledgeable assistant who provides clear, structured comparisons between different concepts, objects,
   or ideas.
 
@@ -72,9 +72,9 @@ COMPARISION_PROMPT = """
 
   Question: {question}
 
-  Comparison:"""
+  Comparison:""")
 
-DEFINITION_PROMPT = """
+DEFINITION_PROMPT = PromptTemplate.from_template("""
   You are a precise and knowledgeable assistant who provides clear, accurate definitions of terms and concepts.
 
   Guidelines:
@@ -89,9 +89,9 @@ DEFINITION_PROMPT = """
 
   Question: {question}
 
-  Definition:"""
+  Definition:""")
 
-GENERAL_PROMPT = """
+GENERAL_PROMPT = PromptTemplate.from_template("""
   You are a helpful and knowledgeable assistant who provides thoughtful, well-structured responses to a wide variety
   of questions.
 
@@ -109,21 +109,11 @@ GENERAL_PROMPT = """
 
   Question: {question}
 
-  Response:"""
+  Response:""")
 
-model = init_chat_model("gpt-4o-mini", model_provider="openai")
-
-def get_question_type(question: str) -> str:
-    template = PromptTemplate.from_template(ROUTING_PROMPT)
-    chain = template | model | StrOutputParser()
-    return chain.invoke({"question": question})
 
 class QueryUnderstandingChat(ChatInterface):
     """Week 1 Part 1 implementation focusing on query understanding."""
-
-    def __init__(self):
-        self.llm = None
-        self.response_prompts = {}
 
     def initialize(self) -> None:
         """Initialize components for query understanding.
@@ -133,21 +123,14 @@ class QueryUnderstandingChat(ChatInterface):
         - Set up query classification prompts
         - Set up response formatting prompts
         """
-        self.llm = model
-
-    def get_prompt(self, message: str):
-        match get_question_type(message):
-            case 'factual':
-                return PromptTemplate.from_template(FACTUAL_PROMPT)
-            case 'analytical':
-                return PromptTemplate.from_template(ANALYTICAL_PROMPT)
-            case 'comparison':
-                return PromptTemplate.from_template(COMPARISION_PROMPT)
-            case 'definition':
-                return PromptTemplate.from_template(DEFINITION_PROMPT)
-            case _:
-                return PromptTemplate.from_template(GENERAL_PROMPT)
-
+        self.llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+        self.routing_chain = ROUTING_PROMPT | self.llm | StrOutputParser()
+        self.response_prompts = {
+            "factual": FACTUAL_PROMPT,
+            "analytical": ANALYTICAL_PROMPT,
+            "comparison": COMPARISION_PROMPT,
+            "definition": DEFINITION_PROMPT,
+        }
 
     def process_message(self, message: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Process a message using query understanding.
@@ -165,6 +148,9 @@ class QueryUnderstandingChat(ChatInterface):
             str: The assistant's response
         """
 
-        template = self.get_prompt(message)
-        chain = template | self.llm | StrOutputParser()
+        def route_question(question_type: str):
+            return self.response_prompts.get(question_type, GENERAL_PROMPT) | self.llm
+
+        question_type = self.routing_chain.invoke({"question": message})
+        chain = route_question(question_type) | StrOutputParser()
         return chain.invoke({"question": message})
