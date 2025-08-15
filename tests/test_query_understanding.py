@@ -1,5 +1,6 @@
 """Tests for QueryUnderstandingChat class."""
 
+import re
 import pytest
 from perplexia_ai.week1.part1 import QueryUnderstandingChat
 
@@ -37,3 +38,27 @@ def test_math_question(chat, question, answer):
 def test_math_tricky(chat):
     """This test will fail without the tool call"""
     assert "179385280681.2326" in chat.process_message("How much is 145323.122 multiplied by 1234389.12?")
+
+def test_conversational_memory_regular_question(chat):
+    chat_history = [
+        {"role": "user", "content": "What is the capital of France?"},
+        {"role": "assistant", "content": "The capital of France is Paris"},
+    ]
+    response = chat.process_message("What is it's population in the metropolitain area?", chat_history)
+    assert "11" in response or "12" in response
+
+def test_conversational_memory_math(chat):
+    chat_history = [
+        {"role": "user", "content": "What is 50% of 100?"},
+        {"role": "assistant", "content": "50% of 100 is 50"},
+    ]
+    response = chat.process_message("And 25%?", chat_history)
+    assert "25" in response
+
+def test_topic_switch(chat):
+    chat_history = [
+        {"role": "user", "content": "What is 50% of 100?"},
+        {"role": "assistant", "content": "50% of 100 is 50"},
+    ]
+    response = chat.process_message("And capital of France?", chat_history)
+    assert "Paris" in response

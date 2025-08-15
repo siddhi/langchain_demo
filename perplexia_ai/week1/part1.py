@@ -7,12 +7,13 @@ This implementation focuses on:
 """
 
 from typing import Dict, List, Optional
+from functools import partial
 from langchain.chat_models import init_chat_model
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
-from langchain_core.messages import ToolMessage, HumanMessage
+from langchain_core.messages import ToolMessage, BaseMessage, AIMessage, HumanMessage
 from perplexia_ai.core.chat_interface import ChatInterface
 from perplexia_ai.tools.calculator import Calculator
 
@@ -31,7 +32,7 @@ Question: {question}
 Category: 
 """)
 
-FACTUAL_PROMPT = PromptTemplate.from_template("""
+FACTUAL_PROMPT = """
   You are a knowledgeable assistant that provides accurate, concise answers to factual questions.
 
   Guidelines:
@@ -43,9 +44,9 @@ FACTUAL_PROMPT = PromptTemplate.from_template("""
 
   Question: {question}
 
-  Answer:""")
+  Answer:"""
 
-ANALYTICAL_PROMPT = PromptTemplate.from_template("""
+ANALYTICAL_PROMPT = """
   You are an expert analyst who provides thorough, well-reasoned explanations for complex questions.
 
   Guidelines:
@@ -59,9 +60,9 @@ ANALYTICAL_PROMPT = PromptTemplate.from_template("""
 
   Question: {question}
 
-  Analysis:""")
+  Analysis:"""
 
-COMPARISION_PROMPT = PromptTemplate.from_template("""
+COMPARISION_PROMPT = """
   You are a knowledgeable assistant who provides clear, structured comparisons between different concepts, objects,
   or ideas.
 
@@ -77,9 +78,9 @@ COMPARISION_PROMPT = PromptTemplate.from_template("""
 
   Question: {question}
 
-  Comparison:""")
+  Comparison:"""
 
-DEFINITION_PROMPT = PromptTemplate.from_template("""
+DEFINITION_PROMPT = """
 You are a precise and knowledgeable assistant who provides clear, accurate definitions of terms and concepts.
 
 - Keep the definition to a single sentence, keep it concise and technically accurate
@@ -87,9 +88,9 @@ You are a precise and knowledgeable assistant who provides clear, accurate defin
 
 Question: {question}
 
-Definition:""")
+Definition:"""
 
-GENERAL_PROMPT = PromptTemplate.from_template("""
+GENERAL_PROMPT = """
   You are a helpful and knowledgeable assistant who provides thoughtful, well-structured responses to a wide variety
   of questions.
 
@@ -107,7 +108,7 @@ GENERAL_PROMPT = PromptTemplate.from_template("""
 
   Question: {question}
 
-  Response:""")
+  Response:"""
 
 MATHS_PROMPT = """
 You are an expert math calculator, who can do complex calculations and gives the right answer to the user's question.
@@ -132,6 +133,17 @@ def calculate(expression: str) -> float | str:
 
 TOOL_MAP = {"calculate": calculate}
 
+def messages_from_dict(messages: list[dict[str, str]]) -> list[BaseMessage]:
+    def convert_msg(message: dict[str, str]) -> BaseMessage:
+        match message:
+            case {"role": "user", "content": content}:
+                return HumanMessage(content=content)
+            case {"role": "assistant", "content": content}:
+                return AIMessage(content=content)
+            case _:
+                return HumanMessage(content="")
+    return [convert_msg(msg) for msg in messages]
+
 class QueryUnderstandingChat(ChatInterface):
     """Week 1 Part 1 implementation focusing on query understanding."""
 
@@ -155,12 +167,12 @@ class QueryUnderstandingChat(ChatInterface):
     def process_message(self, message: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Evaluates the query intent and routes the query to a specific prompt based on the intent category"""
 
-        def calculator_loop(info):
+        def calculator_loop(info, history):
             question = info["question"]
-            messages: list = [("user", MATHS_PROMPT)]
+            messages: list = [("placeholder", "{history}"), ("user", MATHS_PROMPT)]
             while True:
                 chain = ChatPromptTemplate.from_messages(messages) | self.llm.bind_tools([calculate])
-                response = chain.invoke(question)
+                response = chain.invoke({"question": question, "history": history})
                 messages.append(response)
                 if not response.tool_calls:
                     break
@@ -170,12 +182,14 @@ class QueryUnderstandingChat(ChatInterface):
 
             return StrOutputParser().invoke(response)
 
-        def route_question(info: dict[str, str]):
+        def route_question(info: dict[str, str], history):
             match info["category"]:
                 case "maths":
-                    return RunnableLambda(calculator_loop)
+                    return RunnableLambda(partial(calculator_loop, history=history))
                 case _ as category:
-                    return self.response_prompts.get(category, GENERAL_PROMPT) | self.llm | StrOutputParser()
+                    messages: list = [("placeholder", "{history}"), ("user", self.response_prompts.get(category, GENERAL_PROMPT))]
+                    return ChatPromptTemplate.from_messages(messages) | self.llm | StrOutputParser()
 
-        full_chain = {"category": self.routing_chain, "question": lambda x: x["question"] } | RunnableLambda(route_question)
-        return full_chain.invoke({"question": message})
+        history = messages_from_dict(chat_history) if chat_history else []
+        full_chain = {"category": self.routing_chain, "question": lambda x: x["question"], "history": lambda x: x["history"] } | RunnableLambda(partial(route_question, history=history))
+        return full_chain.invoke({"question": message, "history": history})
