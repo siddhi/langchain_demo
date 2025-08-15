@@ -7,11 +7,14 @@ This implementation focuses on:
 """
 
 from typing import Dict, List, Optional
-from perplexia_ai.core.chat_interface import ChatInterface
 from langchain.chat_models import init_chat_model
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
+from langchain_core.tools import tool
+from langchain_core.messages import ToolMessage, HumanMessage
+from perplexia_ai.core.chat_interface import ChatInterface
+from perplexia_ai.tools.calculator import Calculator
 
 ROUTING_PROMPT = PromptTemplate.from_template("""
 You are a query classifier. Given a question, you should classify it into one of five categories:
@@ -19,6 +22,7 @@ You are a query classifier. Given a question, you should classify it into one of
 - analytical: These questions require an in-depth answer with logical reasoning. Example: Explain Rayleigh scattering
 - comparison: These questions ask about two or more things to be compared. Example: What is the difference between an asteroid and a meteor?
 - definition: These questions ask for a definition of a term. Example: Define a strait
+- maths: These questions where the user has specifically asked for the answer of a mathematical calculation. Example: What is 1 + 2?
 - general: Anything else
 
 You should output only a single word containing the category of the question. Do not output anything else.
@@ -105,6 +109,28 @@ GENERAL_PROMPT = PromptTemplate.from_template("""
 
   Response:""")
 
+MATHS_PROMPT = """
+You are an expert math calculator, who can do complex calculations and gives the right answer to the user's question.
+
+Guidelines:
+- Think through the problem step by step and calculate the answer the question
+- Use the provided tools to aid in calculating the anser
+- Do not apply any approximation or rounding to the answer unless asked for by the user
+
+Question: {question}
+Answer:"""
+
+@tool
+def calculate(expression: str) -> float | str:
+    """This tool will take a mathematical expression and return the resultant value of the expression
+
+    In case of an error, it will return the error message instead"""
+    print("Tool called!", expression)
+    output = Calculator.evaluate_expression(expression)
+    print(output)
+    return output
+
+TOOL_MAP = {"calculate": calculate}
 
 class QueryUnderstandingChat(ChatInterface):
     """Week 1 Part 1 implementation focusing on query understanding."""
@@ -129,8 +155,27 @@ class QueryUnderstandingChat(ChatInterface):
     def process_message(self, message: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Evaluates the query intent and routes the query to a specific prompt based on the intent category"""
 
+        def calculator_loop(info):
+            question = info["question"]
+            messages: list = [("user", MATHS_PROMPT)]
+            while True:
+                chain = ChatPromptTemplate.from_messages(messages) | self.llm.bind_tools([calculate])
+                response = chain.invoke(question)
+                messages.append(response)
+                if not response.tool_calls:
+                    break
+                for tool_call in response.tool_calls:
+                    tool_result = TOOL_MAP[tool_call["name"]].invoke(tool_call["args"])
+                    messages.append(ToolMessage(content=str(tool_result), tool_call_id=tool_call["id"]))
+
+            return StrOutputParser().invoke(response)
+
         def route_question(info: dict[str, str]):
-            return self.response_prompts.get(info["category"], GENERAL_PROMPT) | self.llm | StrOutputParser()
+            match info["category"]:
+                case "maths":
+                    return RunnableLambda(calculator_loop)
+                case _ as category:
+                    return self.response_prompts.get(category, GENERAL_PROMPT) | self.llm | StrOutputParser()
 
         full_chain = {"category": self.routing_chain, "question": lambda x: x["question"] } | RunnableLambda(route_question)
         return full_chain.invoke({"question": message})
