@@ -6,12 +6,18 @@ This implementation focuses on:
 - Formatting responses with citations
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TypedDict
 
+from langchain_community.tools import TavilySearchResults
+from langchain_openai import ChatOpenAI
 from perplexia_ai.core.chat_interface import ChatInterface
 
 
-# TODO: Define state for the application.
+class WebSearchState(TypedDict):
+    """State for the web search workflow."""
+    query: str  # User's search query
+    search_results: List[Dict]  # Raw search results from Tavily
+    formatted_response: str  # Final response with citations
 
 # NOTE: The TODOs are only a direction for you to start with.
 # You are free to change the structure of the code as you see fit.
@@ -31,12 +37,15 @@ class WebSearchChat(ChatInterface):
         - Set up Tavily search tool
         - Create a LangGraph for web search workflow
         """
-        # Set up API key for Tavily
-        # os.environ["TAVILY_API_KEY"] = "your-tavily-api-key"
-        
-        # TODO: Initialize LLM
-        
-        # TODO: Initialize search tool
+        # Initialize LLM
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.search_tool = TavilySearchResults(
+            max_results=5,
+            include_answer=True,
+            include_raw_content=True,
+            include_images=False,
+            search_depth="advanced"
+        )
         
         # TODO: Create the graph
         # Define nodes:

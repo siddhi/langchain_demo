@@ -11,14 +11,25 @@ Run the application using the command:
 uv run python run.py
 ```
 
-The run script takes command line parameter `--mode` which can take options:
+The run script takes command line parameters `--week` and `--mode`:
+
+**Week 1** (`--week 1`) modes:
 - `part1` - Query Understanding 
 - `part2` - Basic Tools
 - `part3` - Memory
 
-Currently, we are only concerned with `part1`, so run the app as:
+**Week 2** (`--week 2`) modes:
+- `part1` - Real-time Web Search
+- `part2` - RAG System 
+- `part3` - Corrective RAG
+
+Run the application using:
 ```bash
-uv run python run.py --mode part1
+uv run python run.py --week 1 --mode part1
+```
+or
+```bash
+uv run python run.py --week 2 --mode part1
 ```
 
 ## Testing
@@ -77,6 +88,23 @@ perplexia_ai/
 3. **Part 3 - Memory** (`MemoryChat`)
    - Focus: Add conversation memory and context management
    - Features: Query understanding + tools + conversation history
+   - Status: Template implementation (students need to implement)
+
+### Week 2 Implementation Modes
+
+1. **Part 1 - Real-time Web Search**
+   - Focus: Implement web search capabilities for current information
+   - Features: Search engine integration, real-time data retrieval
+   - Status: Template implementation (students need to implement)
+
+2. **Part 2 - RAG System** 
+   - Focus: Build Retrieval-Augmented Generation system
+   - Features: Document indexing, similarity search, context-aware responses
+   - Status: Template implementation (students need to implement)
+
+3. **Part 3 - Corrective RAG**
+   - Focus: Implement self-correcting RAG with query refinement
+   - Features: Query analysis, retrieval evaluation, corrective mechanisms
    - Status: Template implementation (students need to implement)
 
 ### Technology Stack
