@@ -25,3 +25,37 @@ def test_document_loading_and_chunking():
         assert 'test_docs' in chunk.metadata['source'], "Source should reference test_docs folder"
     
     print(f"Successfully processed {len(document_paths)} documents into {len(chunks)} chunks")
+
+
+@pytest.fixture
+def chat():
+    """Create and initialize DocumentRAGChat instance for testing."""
+    chat = DocumentRAGChat()
+    chat.initialize("test_docs/")  # Use test documents instead of real ones
+    return chat
+
+
+def test_document_rag_omp_headquarters(chat):
+    """Test end-to-end RAG with OMP headquarters question."""
+    # Ask about OMP headquarters
+    response = chat.process_message("Where is the headquarters of OPM?")
+    
+    # Should contain the specific building name
+    assert "Theodore Roosevelt Federal Office Building" in response, \
+           f"Response should mention Theodore Roosevelt Federal Office Building, got: {response}"
+    
+    # Should have sources section
+    assert "SOURCES" in response, "Response should include sources section"
+
+
+def test_document_rag_out_of_scope_question(chat):
+    """Test that RAG system handles questions outside document scope appropriately."""
+    # Ask a math question that's not in OPM documents
+    response = chat.process_message("What is 2 + 2?")
+    
+    # Should respond with "I don't know the answer" as per the prompt
+    assert "I don't know the answer" in response, \
+           f"Response should contain 'I don't know the answer', got: {response}"
+    
+    # Should still have sources section
+    assert "SOURCES" in response, "Response should include sources section"
