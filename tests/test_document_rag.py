@@ -49,13 +49,30 @@ def test_document_rag_omp_headquarters(chat):
 
 
 def test_document_rag_out_of_scope_question(chat):
-    """Test that RAG system handles questions outside document scope appropriately."""
-    # Ask a math question that's not in OPM documents
-    response = chat.process_message("What is 2 + 2?")
+    """Test that RAG system handles nonsensical questions appropriately."""
+    # Ask a nonsensical question that neither documents nor web search can answer
+    response = chat.process_message("How many dreams does a triangle have?")
     
     # Should respond with "I don't know the answer" as per the prompt
     assert "I don't know the answer" in response, \
            f"Response should contain 'I don't know the answer', got: {response}"
+    
+    # Should still have sources section
+    assert "SOURCES" in response, "Response should include sources section"
+
+
+def test_corrective_rag_pycon_workshop(chat):
+    """Test corrective RAG with PyCon India 2025 workshop question requiring web search."""
+    # Ask about specific PyCon India 2025 workshop - not in OPM documents or LLM training
+    response = chat.process_message("Who is doing the workshop on 'Programming is playtime' at Pycon India 2025?")
+    
+    # Should contain the presenter's name
+    assert "Siddharta" in response, \
+           f"Response should mention Siddharta, got: {response}"
+    
+    # Should not say "I don't know" - should use web search instead
+    assert not ("I don't know the answer" in response), \
+           "Should fallback to web search instead of saying 'I don't know'"
     
     # Should still have sources section
     assert "SOURCES" in response, "Response should include sources section"
