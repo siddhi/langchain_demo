@@ -9,7 +9,12 @@ This implementation focuses on:
 
 from typing import Dict, List, Optional
 
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from perplexia_ai.core.chat_interface import ChatInterface
+from pathlib import Path
 
 
 # NOTE: The TODOs are only a direction for you to start with.
@@ -34,17 +39,15 @@ class DocumentRAGChat(ChatInterface):
         - Build retrieval system
         - Create LangGraph for RAG workflow
         """
-        # TODO: Initialize LLM
         
-        # TODO: Initialize embeddings
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.embeddings = OpenAIEmbeddings()
         
-        # TODO: Set paths to OPM documents
-        # data_dir = Path("path/to/opm/documents")
-        # self.document_paths = list(data_dir.glob("*.pdf"))
+        data_dir = Path("docs/")
+        self.document_paths = list(data_dir.glob("*.pdf"))
         
-        # TODO: Process documents and create vector store
-        # docs = self._load_and_process_documents()
-        # self.vector_store = InMemoryVectorStore.from_documents(docs, self.embeddings)
+        docs = self._load_and_process_documents(self.document_paths)
+        self.vector_store = InMemoryVectorStore.from_documents(docs, self.embeddings)
         
         # TODO: Create the graph
         # Define nodes:
@@ -56,13 +59,26 @@ class DocumentRAGChat(ChatInterface):
         # Compile the graph
         pass
     
-    def _load_and_process_documents(self) -> list[str]:
-        """Load and process OPM documents."""
-        # TODO: Implement document loading and processing
-        # 1. Load the documents
-        # 2. Split into chunks
-        # 3. Return processed documents
-        return []
+    def _load_and_process_documents(self, document_paths: list) -> list:
+        """Load and process documents from given paths."""
+        # 1. Load the documents from provided paths
+        documents = []
+        for doc_path in document_paths:
+            loader = PyPDFLoader(str(doc_path))
+            docs = loader.load()
+            documents.extend(docs)
+        
+        # 2. Split into chunks suitable for text-embedding-3-small (8191 token limit)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,  # Conservative chunk size for embeddings
+            chunk_overlap=200,  # Overlap to maintain context
+            length_function=len,
+            is_separator_regex=False,
+        )
+        chunks = text_splitter.split_documents(documents)
+        
+        # 3. Return processed document chunks
+        return chunks
     
     def _create_retrieval_node(self):
         """Create a node that retrieves relevant document sections."""
